@@ -65,6 +65,8 @@ aclmod usage.
 Changes
 -------
 
+1.0 - Allow '-' in user and group names for acl specifications.
+
 0.5 - First publicly released version.
 
 
