@@ -67,6 +67,8 @@ aclmod usage.
 Changes
 -------
 
+1.2 - Fixed minor recursion bug
+
 1.1 - Updated to conform to API change introduced in DFS-Perl 0.25.
 
 1.0 - Allow '-' in user and group names for acl specifications.
@@ -82,4 +84,4 @@ Please report any bugs or feature requests to <henson@acm.org>.
 
 The latest version of aclmod is currently available at
 
-http://www.intranet.csupomona.edu/~henson/www/projects/aclmod/
+http://www.csupomona.edu/~henson/www/projects/aclmod/

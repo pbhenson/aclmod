@@ -1,10 +1,10 @@
 #! /usr/local/bin/perl
 #
-# aclmod version 1.0
+# aclmod version 1.2
 #
 # Paul Henson <henson@acm.org>
 #
-# Copyright (c) 1997 Paul Henson -- see version function for details
+# Copyright (c) 1997,1998,1999 Paul Henson -- see version function for details
 #
 
 use DCE::Status;
@@ -177,7 +177,7 @@ sub process {
 
     process_modify($file);
 
-    if ((-d _) && ($recursive)) {
+    if ((-d $file) && ($recursive)) {
 	if (!opendir(DIR, $file)) {
 	    print STDERR "Error recursing into '" . $file . "', ACLs not changed\n" if $warn;
 	    return;
@@ -342,9 +342,9 @@ sub usage {
 }
 
 sub version {
-    print STDERR "aclmod version 1.0\n";
+    print STDERR "aclmod version 1.2\n";
     print STDERR "\n";
-    print STDERR "     Copyright (c) 1997 Paul Henson <henson\@acm.org>\n";
+    print STDERR "     Copyright (c) 1997,1998,1999 Paul Henson <henson\@acm.org>\n";
     print STDERR "\n";
     print STDERR "     This program is free software; you can redistribute it and/or modify\n";
     print STDERR "     it under the terms of the GNU General Public License as published by\n";
