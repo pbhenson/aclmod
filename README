@@ -1,0 +1,83 @@
+
+Introduction
+------------
+
+aclmod is a utility to manipulate DFS ACLs. It's basically a replacement
+for chmod in the DFS environment that supports extended ACL syntax and
+permissions, as well as wildcards and recursion.
+
+aclmod syntax is almost a strict superset of chmod, and allows you to
+change ACL entries quickly and powerfully. You can make absolute changes
+or relative changes to entries, and you can delete the current entries
+before assigning the new ACL. I think a few examples will best
+illustrate the flexibility of aclmod:
+
+     aclmod go+rx *.dat
+     -- Adds read/execute permission to the group_obj, other_obj, and
+        any_other entries on all files that match the wildcard.
+
+     aclmod -R u:fred=rwx dir
+     -- Recursively adds the entry user:fred with read/write/execute
+        permissions on dir and all files/directories contained within
+        it.
+
+     aclmod -d -O ugo=rw,O=r file
+     -- Deletes any existing entries, and then assigns read/write
+        permission to user_obj, group_obj, and other_obj, and read
+        permission to any_other
+
+
+Installation
+------------
+
+There are two prerequisites for using aclmod. First, you must have perl
+5.003 or greater available on your system. Second, you must have both
+DCE-Perl and DFS-Perl installed. (Actually, I suppose having a DCE cell,
+and a DFS filesystem that supports ACLs, is also a prerequisite, but
+we'll assume you've already taken care of that ;).
+
+
+DCE-Perl is available via CPAN, or via the URL:
+
+http://www.osf.org/~dougm/perl/
+
+
+DFS-Perl is available via the URL:
+
+http://www.intranet.csupomona.edu/~henson/www/projects/DFS-Perl/
+
+
+Once you have installed perl, DCE-Perl, and DFS-Perl, the only other
+configuration you might need to do is edit the first line of aclmod.
+It defaults to using /usr/local/bin/perl. If perl is not installed in
+that location, you need to edit the first line of aclmod to point to
+where perl is installed at your site.
+
+Copy aclmod to where ever you'd like it to be, and make sure that it
+has the correct permissions for users to run it. Installation is now
+complete.
+
+A future version of aclmod will include more documentation, such as a
+man page. For now, you can run 'aclmod -h' to get a short summary of
+aclmod usage.
+
+
+Changes
+-------
+
+0.5 - First publicly released version.
+
+
+Feedback/Availability
+---------------------
+
+Please report any bugs or feature requests to <henson@acm.org>.
+
+I'd also be very interested to hear that you're using aclmod. If you could
+send me an email describing how you use DCE/DFS at your site, and what
+value you receive from aclmod, I'd really appreciate it.
+
+
+The latest version of aclmod is currently available at
+
+http://www.intranet.csupomona.edu/~henson/www/projects/aclmod/

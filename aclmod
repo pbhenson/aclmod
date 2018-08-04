@@ -1,0 +1,362 @@
+#! /usr/local/bin/perl
+#
+# aclmod version 0.5
+#
+# Paul Henson <henson@acm.org>
+# California State Polytechnic University, Pomona
+#
+# Copyright (c) 1997 Paul Henson -- see version function for details
+#
+
+use DCE::Status;
+use DCE::DFS;
+
+$acl_type = DCE::DFS->type_object;
+$deleteall = 0;
+$warn = 1;
+$recursive = 0;
+$combine_others = 1;
+@oparray = ();
+
+if ($#ARGV < 0) {
+    usage();
+    exit(1);
+}
+
+while ($ARGV[0] =~ /^-(.*)$/) {
+    if ($1 eq "io") {
+	if ($acl_type == DCE::DFS->type_object) {
+	    $acl_type = DCE::DFS->type_default_object;
+	}
+	else {
+	    print STDERR "Error: exactly one of '-io' and '-ic' can be specified\n\n";
+	    usage();
+	    exit(1);
+	}
+    }
+    elsif ($1 eq "ic") {
+	if ($acl_type == DCE::DFS->type_object) {
+	    $acl_type = DCE::DFS->type_default_container;
+	}
+	else {
+	    print STDERR "Error: exactly one of '-io' and '-ic' can be specified\n\n";
+	    usage();
+	    exit(1);
+	}
+    }
+    else {
+	foreach (split(//, $1)) {
+	    if ($_ eq "h") {
+		usage();
+		exit(0);
+	    }
+	    elsif ($_ eq "v") {
+		version();
+		exit(0);
+	    }
+	    elsif ($_ eq "d") {
+		$deleteall = 1;
+	    }
+	    elsif ($_ eq "f") {
+		$warn = 0;
+	    }
+	    elsif ($_ eq "R") {
+		$recursive = 1;
+	    }
+	    elsif ($_ eq "O") {
+		$combine_others = 0;
+	    }
+	    else {
+		print STDERR "Error: option '-" . $_ . "' not recognized\n\n";
+		usage();
+		exit(1);
+	    }
+	}
+    }
+    shift;
+}
+
+foreach (split(/,/, $ARGV[0])) {
+    if (/^(([0-7]{1,3})|(([ugoOa]+)|([ug]):(\w+))([+\-=])([rwxcid]+|[ugoO]|[ug]:\w+))$/) {
+	if ($2 ne "") {
+	    my %ophash_u, %ophash_g, %ophash_o, %ophash_O;
+
+	    $ophash_u{'key'} = "user_obj";
+	    $ophash_u{'op'} = "=";
+	    $ophash_u{'operand'} .= "r" if (substr($2, -3, 1) & 4);
+	    $ophash_u{'operand'} .= "wid" if (substr($2, -3, 1) & 2);
+	    $ophash_u{'operand'} .= "x" if (substr($2, -3, 1) & 1);
+	    push(@oparray, \%ophash_u);	    
+	    
+	    $ophash_g{'key'} = "group_obj";
+	    $ophash_g{'op'} = "=";
+	    $ophash_g{'operand'} .= "r" if (substr($2, -2, 1) & 4);
+	    $ophash_g{'operand'} .= "wid" if (substr($2, -2, 1) & 2);
+	    $ophash_g{'operand'} .= "x" if (substr($2, -2, 1) & 1);
+	    push(@oparray, \%ophash_g);
+	    
+	    $ophash_o{'key'} = "other_obj";
+	    $ophash_o{'op'} = "=";
+	    $ophash_o{'operand'} .= "r" if (substr($2, -1, 1) & 4);
+	    $ophash_o{'operand'} .= "wid" if (substr($2, -1, 1) & 2);
+	    $ophash_o{'operand'} .= "x" if (substr($2, -1, 1) & 1);
+	    push(@oparray, \%ophash_o);
+	    
+	    if ($combine_others) {
+		$ophash_O{'key'} = "any_other";
+		$ophash_O{'op'} = "=";
+		$ophash_O{'operand'} .= "r" if (substr($2, -1, 1) & 4);
+		$ophash_O{'operand'} .= "wid" if (substr($2, -1, 1) & 2);
+		$ophash_O{'operand'} .= "x" if (substr($2, -1, 1) & 1);
+		push(@oparray, \%ophash_O);
+	    }
+	}
+	elsif ($4 ne "") {
+	    my $perm_key;
+
+	    foreach $perm_key (split(//, $4)) {
+		my %ophash;
+
+		if ($perm_key eq "u") {
+		    $ophash{'key'} = "user_obj";
+		}
+		elsif ($perm_key eq "g") {
+		    $ophash{'key'} = "group_obj";
+		}
+		elsif ($perm_key eq "o") {
+		    $ophash{'key'} = "other_obj";
+		}
+		elsif ($perm_key eq "O") {
+		    $ophash{'key'} = "any_other";
+		}
+		else {
+		    $ophash{'key'} = "all";
+		}
+
+		$ophash{'op'} = $7;
+		$ophash{'operand'} = $8;
+		push(@oparray, \%ophash);
+	    }
+	}
+	else {
+	    my %ophash;
+
+	    if ($5 eq "u") {
+		$ophash{'key'} = "user:${6}";
+	    }
+	    elsif ($5 eq "g") {
+		$ophash{'key'} = "group:${6}";
+	    }
+	    $ophash{'op'} = $7;
+	    $ophash{'operand'} = $8;
+	    push(@oparray, \%ophash);
+	}
+    }   
+    else {
+	print STDERR "Error: '" . $_ . "' is not a valid ACL entry\n\n";
+	usage();
+	exit(1);
+    }
+}
+
+shift;
+
+foreach (@ARGV) {
+    process($_);
+}
+
+exit 0;
+
+sub process {
+    my ($file) = @_;
+
+    if (!stat($file)) {
+	print STDERR "Error processing '" . $file . "': $!\n" if $warn;
+	return;
+    }
+    return if ((-f _) && ($acl_type != DCE::DFS->type_object));
+
+    process_modify($file);
+
+    if ((-d _) && ($recursive)) {
+	if (!opendir(DIR, $file)) {
+	    print STDERR "Error recursing into '" . $file . "', ACLs not changed\n" if $warn;
+	    return;
+	}
+	foreach (readdir(DIR)) {
+	    next if (/^\.\.?$/);
+	    process("${file}/${_}");
+	}
+    }
+}
+
+sub process_modify {
+    my ($file) = @_;
+    my $acl;
+    my $op_entry;
+    my $status;
+    my $dce_errstr;
+    my $entries;
+
+    ($acl, $status) = DCE::DFS::acl($file, $acl_type);
+    if ($status) {
+	$dce_errstr = error_inq_text($status);
+	print STDERR "Error reading ACL for '" . $file . "': ${dce_errstr}, ACL not changed\n" if $warn;
+	return;
+    }
+
+    $acl->deleteall if ($deleteall);
+
+    foreach $op_entry (@oparray) {
+	if ($op_entry->{key} eq "all") {
+	    $entries = $acl->entries;
+	    foreach (keys (%{$entries})) {
+		next if ($_ eq "mask_obj");
+		if (($status = $acl->modify($_, new_privs($acl,
+							  $entries->{$_},
+							  $op_entry->{op},
+							  $op_entry->{operand})))) {
+		    $dce_errstr = error_inq_text($status);
+		    print STDERR "Error modifying ACL for '" . $file . "': ${dce_errstr}\n" if $warn;
+		}
+	    }
+	}
+	else {
+	    if (($status = $acl->modify($op_entry->{key},
+					new_privs($acl,
+						  $acl->entry($op_entry->{key}),
+						  $op_entry->{op},
+						  $op_entry->{operand})))) {
+		$dce_errstr = error_inq_text($status);
+		print STDERR "Error modifying ACL for '" . $file . "': ${dce_errstr}\n" if $warn;
+	    }
+	    if ($combine_others) {
+		if ($op_entry->{key} eq "other_obj") {
+		    if (($status = $acl->modify("any_other",
+						new_privs($acl,
+							  $acl->entry("any_other"),
+							  $op_entry->{op},
+							  $op_entry->{operand})))) {
+			$dce_errstr = error_inq_text($status);
+			print STDERR "Error modifying ACL for '" . $file . "': ${dce_errstr}\n" if $warn;
+		    }
+		}
+		if ($op_entry->{key} eq "any_other") {
+		    if (($status = $acl->modify("other_obj",
+						new_privs($acl,
+							  $acl->entry("other_obj"),
+							  $op_entry->{op},
+							  $op_entry->{operand})))) {
+			$dce_errstr = error_inq_text($status);
+			print STDERR "Error modifying ACL for '" . $file . "': ${dce_errstr}\n" if $warn;
+		    }
+		}
+	    }
+
+	}
+    }
+
+    $acl->calc_mask;
+
+    if (($status = $acl->commit)) {
+	$dce_errstr = error_inq_text($status);
+	print STDERR "Error committing ACL for '" . $file . "': ${dce_errstr}\n" if $warn;
+    }
+    return;
+}
+
+sub new_privs {
+    my ($acl, $curr_privs, $op, $operand) = @_;
+    my $operand_privs;
+    my $privs;
+
+    if ($operand =~ /^[rwxcid]+$/) {
+	$operand_privs = $operand;
+	$operand_privs =~ tr/[rwxcid]/[rwxcid]/s;
+    }
+    elsif ($operand =~ /^u:(\w+)$/) {
+	$operand_privs = $acl->entry("user:${1}");
+    }
+    elsif ($operand =~ /^g:(\w+)$/) {
+	$operand_privs = $acl->entry("group:${1}");
+    }
+    elsif ($operand eq "u") {
+	$operand_privs = $acl->entry("user_obj");
+    }
+    elsif ($operand eq "g") {
+	$operand_privs = $acl->entry("group_obj");
+    }
+    elsif ($operand eq "o") {
+	$operand_privs = $acl->entry("other_obj");
+    }
+    elsif ($operand eq "O") {
+	$operand_privs = $acl->entry("any_other");
+    }
+
+    if ($op eq "=") {
+	return $operand_privs;
+    }
+    elsif ($op eq "+") {
+	$privs = $curr_privs . $operand_privs;
+	$privs =~ tr/[rwxcid]/[rwxcid]/s;
+	return $privs;
+    }
+    elsif ($op eq "-") {
+	$privs = $curr_privs;
+	$privs =~ s/[$operand_privs]//g;
+	return $privs;
+    }
+}
+	
+sub usage {
+    print STDERR "Usage:  aclmod [-hvfdOR] [-ic|-io] <acl-entry-list> file...\n\n";
+    print STDERR "        Options:\n";
+    print STDERR "                  -h     Print this help information\n";
+    print STDERR "                  -v     Print version and copyright information\n";
+    print STDERR "                  -f     Don't print error messages, fail silently\n";
+    print STDERR "                  -d     Delete existing ACL before applying modifications\n";
+    print STDERR "                  -O     Modify other_obj and any_other entries seperately\n";
+    print STDERR "                  -R     Apply changes recursively\n";
+    print STDERR "                  -ic    Modify initial container ACL\n";
+    print STDERR "                         (default permissions for new directories created\n";
+    print STDERR "                          in this directory)\n";
+    print STDERR "                  -io    Modify initial object ACL\n";
+    print STDERR "                         (default permissions for new files created in\n";
+    print STDERR "                          this directory)\n\n";
+    print STDERR "        Where:\n";
+    print STDERR "                  <acl-entry-list> is a comma separated list of\n";
+    print STDERR "                  ([ugoOa]+|[ug]:<name>)(+|-|=)([rwxcid]+|[ugoO]|[ug]:<name>)\n";
+    print STDERR "                  or an absolute mode in chmod format (eg, 755)\n\n";
+    print STDERR "        Examples:\n";
+    print STDERR "                  aclmod ugo+rwx file\n";
+    print STDERR "                  aclmod o+rx directory\n";
+    print STDERR "                  aclmod u:fred=rw,g:friends+r file\n";
+    print STDERR "                  aclmod -R g=g:friends,a+r directory\n";
+    print STDERR "                  aclmod -O o=rw,O=r file\n";
+    print STDERR "\n";
+
+
+}
+
+sub version {
+    print STDERR "aclmod version 0.5\n";
+    print STDERR "\n";
+    print STDERR "     Copyright (c) 1997 Paul Henson <henson\@acm.org>\n";
+    print STDERR "\n";
+    print STDERR "     This program is free software; you can redistribute it and/or modify\n";
+    print STDERR "     it under the terms of the GNU General Public License as published by\n";
+    print STDERR "     the Free Software Foundation; either version 1, or (at your option)\n";
+    print STDERR "     any later version.\n";
+    print STDERR "\n";
+    print STDERR "     This program is distributed in the hope that it will be useful,\n";
+    print STDERR "     but WITHOUT ANY WARRANTY; without even the implied warranty of\n";
+    print STDERR "     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n";
+    print STDERR "     GNU General Public License for more details.\n";
+    print STDERR "\n";
+    print STDERR "     For a copy of the GNU General Public License, write to the Free\n";
+    print STDERR "     Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.\n";
+    print STDERR "\n";
+    print STDERR "     The GNU General Public License is, as of this writing, also available\n";
+    print STDERR "     at http://www.irsociety.com/webchat/gnu.html\n";
+    print STDERR "\n";
+}
