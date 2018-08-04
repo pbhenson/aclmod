@@ -212,7 +212,7 @@ sub process_modify {
 	    foreach (keys (%{$entries})) {
 		next if ($_ eq "mask_obj");
 		if (($status = $acl->modify($_, new_privs($acl,
-							  $entries->{$_},
+							  $_,
 							  $op_entry->{op},
 							  $op_entry->{operand})))) {
 		    $dce_errstr = error_inq_text($status);
@@ -223,7 +223,7 @@ sub process_modify {
 	else {
 	    if (($status = $acl->modify($op_entry->{key},
 					new_privs($acl,
-						  $acl->entry($op_entry->{key}),
+						  $op_entry->{key},
 						  $op_entry->{op},
 						  $op_entry->{operand})))) {
 		$dce_errstr = error_inq_text($status);
@@ -233,7 +233,7 @@ sub process_modify {
 		if ($op_entry->{key} eq "other_obj") {
 		    if (($status = $acl->modify("any_other",
 						new_privs($acl,
-							  $acl->entry("any_other"),
+							  "any_other",
 							  $op_entry->{op},
 							  $op_entry->{operand})))) {
 			$dce_errstr = error_inq_text($status);
@@ -243,7 +243,7 @@ sub process_modify {
 		if ($op_entry->{key} eq "any_other") {
 		    if (($status = $acl->modify("other_obj",
 						new_privs($acl,
-							  $acl->entry("other_obj"),
+							  "other_obj",
 							  $op_entry->{op},
 							  $op_entry->{operand})))) {
 			$dce_errstr = error_inq_text($status);
@@ -265,8 +265,9 @@ sub process_modify {
 }
 
 sub new_privs {
-    my ($acl, $curr_privs, $op, $operand) = @_;
+    my ($acl, $entry_key, $op, $operand) = @_;
     my $operand_privs;
+    my $curr_privs;
     my $privs;
 
     if ($operand =~ /^[rwxcid]+$/) {
@@ -274,34 +275,37 @@ sub new_privs {
 	$operand_privs =~ tr/[rwxcid]/[rwxcid]/s;
     }
     elsif ($operand =~ /^u:(\w+)$/) {
-	$operand_privs = $acl->entry("user:${1}");
+	($operand_privs) = $acl->entry("user:${1}");
     }
     elsif ($operand =~ /^g:(\w+)$/) {
-	$operand_privs = $acl->entry("group:${1}");
+	($operand_privs) = $acl->entry("group:${1}");
     }
     elsif ($operand eq "u") {
-	$operand_privs = $acl->entry("user_obj");
+	($operand_privs) = $acl->entry("user_obj");
     }
     elsif ($operand eq "g") {
-	$operand_privs = $acl->entry("group_obj");
+	($operand_privs) = $acl->entry("group_obj");
     }
     elsif ($operand eq "o") {
-	$operand_privs = $acl->entry("other_obj");
+	($operand_privs) = $acl->entry("other_obj");
     }
     elsif ($operand eq "O") {
-	$operand_privs = $acl->entry("any_other");
+	($operand_privs) = $acl->entry("any_other");
     }
 
     if ($op eq "=") {
 	return $operand_privs;
     }
     elsif ($op eq "+") {
+	($curr_privs) = $acl->entry($entry_key);
 	$privs = $curr_privs . $operand_privs;
 	$privs =~ tr/[rwxcid]/[rwxcid]/s;
 	return $privs;
     }
     elsif ($op eq "-") {
+	($curr_privs) = $acl->entry($entry_key);
 	$privs = $curr_privs;
+	$operand_privs =~ s/[\-]//g;
 	$privs =~ s/[$operand_privs]//g;
 	return $privs;
     }
