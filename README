@@ -39,14 +39,14 @@ aclmod requires at least DCE-Perl version 0.17 and DFS-Perl version
 0.25 (later versions will most likely work as well).
 
 
-DCE-Perl is available via CPAN, or via the URL:
+DCE-Perl is available via CPAN, or via github:
 
-http://www.intranet.csupomona.edu/~henson/www/projects/DCE-Perl/
+	https://github.com/pbhenson/DCE-Perl
 
 
-DFS-Perl is available via CPAN, or via the URL:
+DFS-Perl is available via CPAN, or via github:
 
-http://www.intranet.csupomona.edu/~henson/www/projects/DFS-Perl/
+	https://github.com/pbhenson/DFS-Perl
 
 
 Once you have installed perl, DCE-Perl, and DFS-Perl, the only other
@@ -84,4 +84,4 @@ Please report any bugs or feature requests to <henson@acm.org>.
 
 The latest version of aclmod is currently available at
 
-http://www.csupomona.edu/~henson/www/projects/aclmod/
+	https://github.com/pbhenson/aclmod
